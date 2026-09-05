@@ -1,0 +1,72 @@
+# Deploys the memorial site from GitHub, so nothing depends on a particular
+# computer being switched on. Runs on every push to main, on a schedule (to
+# trim the bars off any new photos), and on demand from the Actions tab.
+#
+# It needs three repository secrets (Settings -> Secrets and variables ->
+# Actions). Without them it stops early and says so, harming nothing:
+#
+#   CLOUDFLARE_API_TOKEN   a token that can edit Workers, D1, DNS and SSL
+#   CLOUDFLARE_ACCOUNT_ID  the account id shown on the Workers & Pages page
+#   ADMIN_PASSWORD         the caretaker password, for the trim pass (optional)
+#
+# The trim pass is the same tools/trim-all.mjs a person would run by hand:
+# reversible, cautious, and it never touches a photo twice.
+name: Deploy the memorial site
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 */6 * * *'   # every six hours: trim newly added screenshots
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check the secrets are in place
+        id: secrets
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::notice::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are not set yet, so nothing was deployed. Add them under Settings -> Secrets and variables -> Actions, then re-run."
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      # A scheduled run only trims; the site itself is deployed by pushes.
+      - name: Deploy the site (schema, worker, domains)
+        if: steps.secrets.outputs.ready == 'yes' && github.event_name != 'schedule'
+        working-directory: api
+        run: bash deploy.sh
+
+      - name: Trim the bars off any new photos
+        if: steps.secrets.outputs.ready == 'yes' && env.ADMIN_PASSWORD != ''
+        working-directory: tools
+        run: |
+          npm install --silent
+          node trim-all.mjs --base https://mahoganyjr.com
+          echo "----- trim-all.log -----"
+          cat trim-all.log
+
+      - name: Say what happened
+        if: always()
+        run: |
+          if [ "${{ steps.secrets.outputs.ready }}" != "yes" ]; then exit 0; fi
+          if [ -z "$ADMIN_PASSWORD" ]; then
+            echo "::notice::Deployed. The trim pass did not run because ADMIN_PASSWORD is not set as a repository secret."
+          fi
