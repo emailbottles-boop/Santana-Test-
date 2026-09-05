@@ -140,6 +140,12 @@
     var text = document.createElement('p');
     text.textContent = st.caption || '';
     el.appendChild(text);
+    // A small signature under the words, only when a name was given.
+    var told = document.createElement('div');
+    told.className = 'told';
+    told.textContent = st.uploader ? '\u2014 ' + st.uploader : '';
+    told.hidden = !st.uploader;
+    el.appendChild(told);
     var hint = document.createElement('div');
     hint.className = 'more-hint';
     hint.textContent = 'Read';
@@ -1002,6 +1008,7 @@
       var have = findStory(p.id);
       if (have) {
         var tx = have.querySelector('p'); if (tx) tx.textContent = p.caption || '';
+        var td = have.querySelector('.told'); if (td) { td.textContent = p.uploader ? '\u2014 ' + p.uploader : ''; td.hidden = !p.uploader; }
         for (var si = 0; si < stories.length; si++) if (stories[si].id === p.id) { stories[si] = p; break; }
         return;
       }
