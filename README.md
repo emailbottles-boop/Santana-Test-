@@ -65,6 +65,26 @@ task still watches the old branch:
 `seed/.done` already lists all six starter photographs, because they are on
 the live site already; the seed step will not send them a second time.
 
+## Deploying from GitHub, with no computer involved
+
+`.github/workflows/deploy.yml` deploys the site from GitHub itself: on every
+push to `main`, every six hours (to trim the bars off newly added photos),
+and on demand from the repository's **Actions** tab. Once it is set up, the
+caretaker's computer no longer has to be on for anything.
+
+It needs three secrets, added once at
+**Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret | What it is | Where to get it |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | Lets GitHub deploy the worker | Cloudflare → My Profile → **API Tokens** → Create Token → start from **Edit Cloudflare Workers**, then add **D1: Edit**, **DNS: Edit** and **SSL and Certificates: Edit** (all zones). |
+| `CLOUDFLARE_ACCOUNT_ID` | Which Cloudflare account | Shown on the right of the **Workers & Pages** page in the dashboard. |
+| `ADMIN_PASSWORD` | The caretaker password, so the trim pass can sign in | The same one used at `/admin`. Optional: without it, the site still deploys and only the automatic trimming is skipped. |
+
+Without the first two the workflow stops early and says so; nothing breaks.
+The trim pass is the same `tools/trim-all.mjs` a person would run by hand:
+reversible, cautious, never touches a photo twice.
+
 ## Setting it up
 
 Full walkthrough in **[api/README.md](api/README.md)**. Short version, all
