@@ -48,9 +48,35 @@ jobs:
             echo "ready=yes" >> "$GITHUB_OUTPUT"
           fi
 
-      # A scheduled run only trims; the site itself is deployed by pushes.
-      - name: Deploy the site (schema, worker, domains)
+      # A domain that was added to Cloudflare while it still pointed at
+      # Squarespace carries Squarespace's parking records, and Cloudflare will
+      # not attach the worker over them. Remove exactly those records (and
+      # nothing else) so the domain can attach on deploy.
+      - name: Clear Squarespace parking records from santanaturner.com
         if: steps.secrets.outputs.ready == 'yes' && github.event_name != 'schedule'
+        run: |
+          api="https://api.cloudflare.com/client/v4"
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          zone=$(curl -sS -H "$auth" "$api/zones?name=santanaturner.com" | jq -r '.result[0].id // empty')
+          if [ -z "$zone" ]; then
+            echo "::notice::santanaturner.com is not in this Cloudflare account yet, so nothing to clear."
+            exit 0
+          fi
+          curl -sS -H "$auth" "$api/zones/$zone/dns_records?per_page=200" \
+            | jq -r '.result[] | select(.content | test("^198\\.185\\.159\\.|^198\\.49\\.23\\.|squarespace\\.com$")) | "\(.id) \(.type) \(.name) \(.content)"' \
+            | while read -r id type name content; do
+                echo "Removing Squarespace record: $type $name -> $content"
+                curl -sS -X DELETE -H "$auth" "$api/zones/$zone/dns_records/$id" > /dev/null
+              done
+
+      # A scheduled run only trims; the site itself is deployed by pushes.
+      # A failure here is usually a domain that could not attach; the worker
+      # itself uploads before that, so the site is live and the trim pass
+      # below still runs. The job is marked failed at the end regardless.
+      - name: Deploy the site (schema, worker, domains)
+        id: deploy
+        if: steps.secrets.outputs.ready == 'yes' && github.event_name != 'schedule'
+        continue-on-error: true
         working-directory: api
         run: bash deploy.sh
 
@@ -68,5 +94,9 @@ jobs:
         run: |
           if [ "${{ steps.secrets.outputs.ready }}" != "yes" ]; then exit 0; fi
           if [ -z "$ADMIN_PASSWORD" ]; then
-            echo "::notice::Deployed. The trim pass did not run because ADMIN_PASSWORD is not set as a repository secret."
+            echo "::notice::The trim pass did not run because ADMIN_PASSWORD is not set as a repository secret."
+          fi
+          if [ "${{ steps.deploy.outcome }}" = "failure" ]; then
+            echo "::error::The deploy step reported a problem (see its log). The worker itself usually uploaded fine; the likely cause is a domain that could not attach."
+            exit 1
           fi
