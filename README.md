@@ -141,6 +141,23 @@ that two dashboard switches are on. Do these in order, at a computer:
 permanently, including the file). Uploads are public the moment they are made,
 so `/admin` is worth having bookmarked on your phone.
 
+**Bars and phone furniture on photos.** Screenshots arrive with the status
+bar, black bands and the viewer's grey strips baked in. Two ways to fix that,
+both reversible:
+
+- In `/admin`, every photo has **Trim**. It finds the bars, shows you the
+  crop, and one tap puts the trimmed copy on the wall. **Find photos with
+  bars** at the top marks every photo that needs it.
+- Unattended: `tools/trim-all.mjs` does the same for every photo on the
+  wall in one go (`cd tools && npm install`, then
+  `ADMIN_PASSWORD=... node trim-all.mjs`; add `--dry-run` to only list).
+  With the password saved in `tools/.admin-password` (gitignored), the
+  scheduled deploy runs it after every deploy, so new screenshots get
+  trimmed within minutes of arriving.
+
+Either way the copy it replaces is kept, and the photo gets an **Untrim**
+button in `/admin` that puts it straight back.
+
 **Recordings.** MP3, WAV, M4A, OGG and FLAC, up to 60MB each. They are stored
 exactly as uploaded — nothing re-encodes his music — so a WAV stays a WAV. A
 WAV is about ten times the size of an MP3 of the same song; the free 10GB
@@ -194,7 +211,9 @@ into a dated folder. Keep it somewhere that isn't Cloudflare.
 | `api/deploy.sh` | puts the whole site live |
 | `api/backup.sh` | downloads everything onto your computer |
 | `tools/crop-screenshots.py` | trims phone/Facebook furniture off screenshots |
-| `tools/autodeploy.sh` | run from a scheduled task: pulls and deploys whenever the branch moves |
+| `tools/autodeploy.sh` | run from a scheduled task: pulls, deploys, and trims new photos whenever the branch moves |
+| `tools/trim-all.mjs` | trims the bars off every photo on the wall, unattended and reversibly |
+| `tools/HOME-SETUP.md` | the one command that sets up the caretaker's computer |
 | `seed/` | the first photos of him, and `seed.sh` to put them up; safe to re-run |
 | `old-starter/` | the blank files this repository began with; nothing in them |
 
