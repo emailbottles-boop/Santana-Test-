@@ -1,3 +1,212 @@
-# Site
+# Santana Turner — santanaturner.com · mahoganyjr.com
 
-Basic starter repo: index.html, style.css, script.js.
+A quiet website where the people who knew Santana can put their photographs in
+one place, so the pictures that only exist on one person's phone don't stay
+there.
+
+Anyone with the link can add a photo or a recording. No account, no app, no
+sign-in. Photos go on the wall and recordings into their own section, straight
+away — and onto every other open copy of the page within a few seconds,
+without anyone refreshing. You keep a private `/admin` page where you can hide
+or delete anything, and that disappears for everyone just as fast.
+
+It runs entirely on Cloudflare's free tier and costs nothing to keep online:
+100,000 requests a day, a 5GB database, 10GB of photo storage. Roughly ten
+thousand phone photos before you'd approach any limit. Nothing sleeps, nothing
+expires, and there is no monthly bill to forget about.
+
+## How it fits together
+
+```
+Visitor ─▶ santanaturner.com ─┐
+Visitor ─▶ mahoganyjr.com ────┴▶ one Cloudflare Worker
+                               ├─ the page, CSS, JavaScript   (from site/)
+                               ├─ /api/*  /img/*  /admin      (from api/src/)
+                               ├──▶ D1  (captions, names, dates)
+                               └──▶ R2  (the photos and recordings)
+You ────▶ /admin  (password protected)
+```
+
+The whole thing is one Cloudflare Worker in your existing account. It serves
+the page out of [`site/`](site/) and runs the backend out of
+[`api/src/`](api/src/), so one deploy puts everything live and there is nothing
+to point at anything else. The page itself is plain HTML, CSS and JavaScript —
+no build step, no framework, nothing to update. If you open it in five years it
+will still make sense.
+
+## This repository, and where it came from
+
+The site was first built on a side branch of the WizardShit repository while
+it was being put together. It never touched that store's main branch, its
+worker, its database or its photos — but it did not belong there, and it now
+lives here on its own. Nothing about the live site changed in the move: the
+worker is still `memorial-api`, the database and the photo bucket are the same
+ones, so every photo, recording and caption that is up stays up.
+
+**One thing to do at the caretaker's computer, once,** because its scheduled
+task still watches the old branch:
+
+1. Clone this repository next to the old one (or anywhere):
+
+   ```
+   git clone https://github.com/emailbottles-boop/Santana-Test-.git santana-site
+   ```
+
+2. Open the scheduled task (Task Scheduler on Windows) that runs
+   `autodeploy.sh`, and point it at `tools/autodeploy.sh` inside the new
+   folder instead. The script is the same; only the folder changed.
+
+3. Run it once by hand to prove it: `bash tools/autodeploy.sh` from the new
+   folder. That deploys and attaches santanaturner.com (see the note in
+   `api/wrangler.toml` if it says the zone was not found).
+
+4. The old branch in WizardShit can then be deleted. Everything is here.
+
+`seed/.done` already lists all six starter photographs, because they are on
+the live site already; the seed step will not send them a second time.
+
+## Setting it up
+
+Full walkthrough in **[api/README.md](api/README.md)**. Short version, all
+from your terminal, all from the `api/` folder:
+
+1. `npx wrangler login`
+2. `npx wrangler d1 create memorial` — paste the id it prints into `wrangler.toml`
+3. `npx wrangler r2 bucket create memorial-photos`
+4. `npx wrangler secret put ADMIN_PASSWORD` — choose the caretaker password
+5. `bash deploy.sh`
+
+That's it — step 5 puts the page, the backend, the domain and its HTTPS all
+live at once. **There is no DNS to set up**: the domain entries in
+`wrangler.toml` are Workers Custom Domains, and Cloudflare writes the records
+itself on deploy. The only thing that can stand in the way is the domain not
+being in your Cloudflare account yet, which the walkthrough covers.
+
+Then open `https://mahoganyjr.com/admin` and sign in. The top of the page is
+his name and The Real MJ, and nothing else, on purpose.
+
+## HTTPS — the five-minute checklist
+
+The worker already sends anyone who arrives on plain `http://` across to
+`https://` (a 302, so it is undoable from the dashboard alone), and a Workers
+Custom Domain gets its certificate made by Cloudflare on deploy. So HTTPS is
+mostly a matter of making sure the live site is running the current code and
+that two dashboard switches are on. Do these in order, at a computer:
+
+1. **Make sure the live site is current.** The scheduled task on the
+   caretaker's computer deploys this branch on its own within a few minutes
+   of a change. To do it by hand instead, from the `api/` folder:
+
+   ```
+   bash deploy.sh
+   ```
+
+   The output must list `mahoganyjr.com`, `www.mahoganyjr.com`,
+   `santanaturner.com` and `www.santanaturner.com` as attached.
+   If it says a custom domain could not be attached, the domain is not a zone
+   in this Cloudflare account yet — see "The domain" in `api/README.md`.
+
+2. **Cloudflare dashboard → SSL/TLS → Overview**, for mahoganyjr.com and
+   again for santanaturner.com. Set the encryption mode to **Full (strict)**.
+   (A Workers Custom Domain terminates at Cloudflare, so Full (strict) is
+   correct and Flexible is never needed.)
+
+3. **SSL/TLS → Edge Certificates**, for each domain. Turn on **Always Use
+   HTTPS** and **Automatic HTTPS Rewrites**. Leave HSTS alone: it cannot be
+   undone quickly and the redirect in the worker already does the job.
+
+4. **Check it, on a phone on mobile data, not Wi-Fi:**
+
+   - `http://mahoganyjr.com` — should land on `https://mahoganyjr.com` with a
+     padlock, not "Not Secure".
+   - `https://www.mahoganyjr.com` — same page, padlock.
+   - `https://santanaturner.com` and `https://www.santanaturner.com` — same
+     page, padlock.
+   - `https://mahoganyjr.com/admin` — the caretaker sign-in.
+
+   If the padlock is missing on the `www` address only, go to **Workers &
+   Pages → memorial-api → Settings → Domains & Routes** and confirm both
+   domains show a green certificate status; a freshly attached domain can
+   take a few minutes for its certificate.
+
+5. **If a work or school Wi-Fi shows a Fortinet "Newly Registered Domain"
+   block page,** that is their filter, not the site. Anyone on mobile data or
+   home Wi-Fi sees it fine. Fortinet's own re-rating form (linked from that
+   block page) takes a day or two and lifts it on every network they filter.
+
+## Looking after it
+
+**Taking something down.** Go to `/admin`. Every photo and recording has
+**Hide** (comes off the site, file kept, reversible) and **Delete** (gone
+permanently, including the file). Uploads are public the moment they are made,
+so `/admin` is worth having bookmarked on your phone.
+
+**Recordings.** MP3, WAV, M4A, OGG and FLAC, up to 60MB each. They are stored
+exactly as uploaded — nothing re-encodes his music — so a WAV stays a WAV. A
+WAV is about ten times the size of an MP3 of the same song; the free 10GB
+bucket holds a couple of hundred of them, or a couple of thousand MP3s.
+
+**Getting photos off Facebook.** In the photo viewer, the `...` menu in the
+top corner has **Save/Download**, which gives you the real full-resolution
+file. Use that rather than screenshotting — a screenshot bakes in the status
+bar, the black bars and the like-button strip, at a fraction of the quality.
+
+If you have already screenshotted a pile of them, this trims the furniture back
+off (originals untouched, and it is safe to run twice):
+
+```
+python3 tools/crop-screenshots.py ~/Pictures/screenshots
+```
+
+**Someone can't add a photo.** Almost always an iPhone HEIC that their browser
+won't decode. The page says so and suggests screenshotting it, which works.
+Most phones convert to JPEG automatically on upload, so this is uncommon.
+
+**Originals.** Every photo that has to be shrunk for the page is also kept
+exactly as it left the phone, and never shown to the public — a phone writes
+its GPS position and more into the file, and the page's copies have that
+stripped. You get the originals from `/admin` (an "original" link under each
+photo) or in bulk with the backup below.
+
+**Keeping a copy.** These photos may be the only copies of some of them. Once
+or twice a year:
+
+```
+cd api
+ADMIN_PASSWORD=yourpassword bash backup.sh https://mahoganyjr.com
+```
+
+That downloads every photo, every recording, every original and all the words
+into a dated folder. Keep it somewhere that isn't Cloudflare.
+
+## What's in here
+
+| | |
+|---|---|
+| `site/index.html` | the memorial page |
+| `site/css/style.css` | all the styling |
+| `site/js/main.js` | loading the wall, the lightbox, uploading |
+| `site/js/config.js` | one line, normally empty: where the backend lives |
+| `api/src/index.js` | the Worker — serves the page, uploads, the wall, admin |
+| `api/src/admin.js` | the caretaker panel |
+| `api/schema.sql` | the two database tables |
+| `api/wrangler.toml` | the worker's config, including both domains |
+| `api/deploy.sh` | puts the whole site live |
+| `api/backup.sh` | downloads everything onto your computer |
+| `tools/crop-screenshots.py` | trims phone/Facebook furniture off screenshots |
+| `tools/autodeploy.sh` | run from a scheduled task: pulls and deploys whenever the branch moves |
+| `seed/` | the first photos of him, and `seed.sh` to put them up; safe to re-run |
+| `old-starter/` | the blank files this repository began with; nothing in them |
+
+## A note on what this does with photos
+
+Before a photo leaves the browser it is resized to 2400px on its long edge and
+re-encoded, and a small copy is made for the wall so a page of photos loads
+in a moment. (Recordings are never touched.) That is mostly for speed, but it has a side effect worth knowing:
+it strips the EXIF metadata, so the GPS coordinates that phones quietly attach
+to photos are not published along with them.
+
+Photos are public to anyone with the link. There is no password on the wall
+itself — that is deliberate, so nobody is locked out at a bad moment — but it
+does mean the link is the only thing protecting it. Share it the way you'd
+share a funeral notice.
