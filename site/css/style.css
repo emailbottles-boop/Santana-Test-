@@ -428,6 +428,13 @@ main {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.rec .told {
+  margin: 4px 0 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--soft);
+}
 .story .told {
   margin: 12px 0 0;
   font-family: var(--serif);

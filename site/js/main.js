@@ -96,6 +96,12 @@
       by.textContent = fmtDur(r.duration);
       meta.appendChild(by);
     }
+    // The same small signature a story frame carries, only when a name was given.
+    var told = document.createElement('div');
+    told.className = 'told';
+    told.textContent = r.uploader ? '\u2014 ' + r.uploader : '';
+    told.hidden = !r.uploader;
+    meta.appendChild(told);
     el.appendChild(meta);
 
     var a = document.createElement('audio');
@@ -1099,6 +1105,8 @@
     if (existing) {
       var cap = existing.querySelector('.cap');
       if (cap) cap.textContent = p.caption || (p.kind === 'audio' ? 'Untitled recording' : '');
+      var told = existing.querySelector('.told');
+      if (told) { told.textContent = p.uploader ? '\u2014 ' + p.uploader : ''; told.hidden = !p.uploader; }
       // The caretaker may have trimmed it: the file behind it changed, so
       // the picture on the wall, in the row and in the opened view follow.
       var list = p.kind === 'audio' ? recordings : photos;
