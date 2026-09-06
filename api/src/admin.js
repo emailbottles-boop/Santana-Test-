@@ -254,7 +254,7 @@ export const ADMIN_HTML = `<!doctype html>
     el.innerHTML =
       media +
       '<div class="meta">' +
-        (p.kind === 'story' && !p.image ? '' : '<div class="cap">' + (p.kind === 'story' ? '<span style="color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Story</span><br>' : '') + (p.caption ? esc(p.caption) : '<span style="color:var(--soft)">No caption</span>') + '</div>') +
+        (p.kind === 'story' && !p.image ? '' : '<div class="cap">' + (p.kind === 'story' ? '<span style="color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase">Story</span><br>' : (p.parent_id ? '<span style="color:var(--accent);font-size:11px;letter-spacing:.14em;text-transform:uppercase">In story #' + p.parent_id + '</span><br>' : '')) + (p.caption ? esc(p.caption) : '<span style="color:var(--soft)">No caption</span>') + '</div>') +
         '<div class="by">' + (p.uploader ? 'added by ' + esc(p.uploader) : 'added anonymously') +
           (p.photographer ? ' \u00b7 photo by ' + esc(p.photographer) : '') +
           (!p.image ? '' : ' \u00b7 <a href="/api/admin/original/' + p.id + '?token=' + encodeURIComponent(token) + '">original' + (p.original_bytes ? ' ' + niceSize(p.original_bytes) : '') + '</a>') +

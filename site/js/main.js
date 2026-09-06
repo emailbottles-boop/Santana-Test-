@@ -129,13 +129,32 @@
     el.dataset.id = st.id;
     el.tabIndex = 0;
     el.setAttribute('role', 'button');
-    if (st.image) {
+    var pics = storyPics(st);
+    if (pics.length) {
       var pic = document.createElement('img');
       pic.loading = 'lazy';
       pic.decoding = 'async';
-      pic.src = thumbUrl(st);
+      pic.src = thumbUrl(pics[0]);
       pic.alt = '';
       el.appendChild(pic);
+      if (pics.length > 1) {
+        var row = document.createElement('div');
+        row.className = 'story-pics';
+        var shown = pics.slice(1, 5);
+        shown.forEach(function (q) {
+          var t = document.createElement('img');
+          t.loading = 'lazy'; t.decoding = 'async'; t.alt = '';
+          t.src = thumbUrl(q);
+          row.appendChild(t);
+        });
+        if (pics.length > 5) {
+          var more = document.createElement('div');
+          more.className = 'more';
+          more.textContent = '+' + (pics.length - 5);
+          row.appendChild(more);
+        }
+        el.appendChild(row);
+      }
     }
     var text = document.createElement('p');
     text.textContent = st.caption || '';
@@ -158,10 +177,17 @@
     return el;
   }
 
-  // Stories with a photograph come first, then the written ones; newest
+  // Every picture that belongs to a story: an older story may carry one
+  // picture on the story itself; newer ones list theirs in `pics`.
+  function storyPics(st) {
+    var list = st.image ? [st] : [];
+    return list.concat(st.pics || []);
+  }
+
+  // Stories with photographs come first, then the written ones; newest
   // first within each.
   function storyOrder(a, b) {
-    var ai = a.image ? 1 : 0, bi = b.image ? 1 : 0;
+    var ai = storyPics(a).length ? 1 : 0, bi = storyPics(b).length ? 1 : 0;
     return bi - ai || b.id - a.id;
   }
 
@@ -174,8 +200,16 @@
   }
 
   function openReader(st) {
-    $('readerImg').hidden = !st.image;
-    if (st.image) $('readerImg').src = fileUrl(st); else $('readerImg').removeAttribute('src');
+    var box = $('readerPics');
+    box.innerHTML = '';
+    var pics = storyPics(st);
+    pics.forEach(function (q) {
+      var im = document.createElement('img');
+      im.alt = q.caption || '';
+      im.src = fileUrl(q);
+      box.appendChild(im);
+    });
+    box.hidden = !pics.length;
     $('readerText').textContent = st.caption || '';
     $('readerBy').textContent = st.uploader ? 'told by ' + st.uploader : '';
     $('readerBy').hidden = !st.uploader;
@@ -399,11 +433,7 @@
       li.dataset.i = i;
       ul.appendChild(li);
     });
-    storyButton();
-    $('send').disabled = chosen.length === 0;
-    $('send').textContent = chosen.length > 1
-      ? 'Add ' + chosen.length + ' photos to the wall'
-      : 'Add to the wall';
+    updateSend();
   }
 
   // Note the class list is rebuilt rather than replaced: 'sz' is the hook this
@@ -592,7 +622,7 @@
 
   /* ---------------------------------------------------------- uploading --- */
 
-  function send(item, caption, by, story) {
+  function send(item, caption, by, story, parent) {
     var photoBy = $('photoBy').value.trim();
     var trap = $('website').value;
     var q = trap ? '?website=' + encodeURIComponent(trap) : '';
@@ -610,6 +640,7 @@
       fd.append('by', by);
       fd.append('photo_by', photoBy);
       if (story) fd.append('story', story);
+      if (parent) fd.append('parent', String(parent));
       return api('/api/photos' + q, { method: 'POST', body: fd });
     }
 
@@ -628,7 +659,7 @@
     return new Promise(function (r) { setTimeout(r, ms); });
   }
 
-  $('send').addEventListener('click', function () {
+  function sendToWall() {
     if (!chosen.length) return;
 
     var caption = $('caption').value.trim();
@@ -745,18 +776,29 @@
         btn.disabled = true;
       }, 1600);
     });
-  });
+  }
 
   /* -------------------------------------------------------------- story --- */
 
-  function storyButton() {
-    var has = $('story').value.trim().length >= 2;
-    $('sendStory').disabled = !has;
-    $('sendStory').textContent = chosen.length === 1 ? 'Add the photo with the story' : 'Add the story';
+  // The one button's label says what will happen: photos alone go on the
+  // wall; a story alone goes in a frame; a story with photos goes in a frame
+  // with all of them. Nothing typed is ever quietly dropped.
+  function storyText() { return $('story').value.trim(); }
+
+  function updateSend() {
+    var st = storyText().length >= 2, n = chosen.length, btn = $('send');
+    if (st) {
+      btn.disabled = false;
+      btn.textContent = n === 0 ? 'Add the story' : n === 1 ? 'Add the story with its photo' : 'Add the story with its ' + n + ' photos';
+    } else {
+      btn.disabled = n === 0;
+      btn.textContent = n === 0 ? 'Add' : n > 1 ? 'Add ' + n + ' photos to the wall' : 'Add to the wall';
+    }
   }
-  $('story').addEventListener('input', storyButton);
+  $('story').addEventListener('input', updateSend);
 
   function placeStory(st) {
+    stories = stories.filter(function (x) { return x.id !== st.id; });
     stories.push(st);
     stories.sort(storyOrder);
     renderStories();
@@ -764,57 +806,90 @@
     if (el) el.classList.add('fresh');
   }
 
-  $('sendStory').addEventListener('click', function () {
-    var text = $('story').value.trim();
+  function sendStory() {
+    var text = storyText();
     if (text.length < 2) return;
     var msg = $('msg');
-    var btn = $('sendStory');
+    var btn = $('send');
     msg.className = 'msg';
 
-    // A story goes with one photograph or none. More than one, or a
-    // recording, is asked to be sorted out rather than guessed at.
-    if (chosen.length > 1) {
-      msg.className = 'msg bad';
-      msg.textContent = 'Choose just one photo to go with a story, or none.';
-      return;
-    }
-    if (chosen.length === 1 && audioType(chosen[0])) {
-      msg.className = 'msg bad';
-      msg.textContent = 'A story goes with a photo, not a recording. Add the recording to the wall on its own.';
-      return;
+    // A story's pictures are photographs. A recording goes on the wall on
+    // its own; it is asked for rather than guessed at.
+    for (var k = 0; k < chosen.length; k++) {
+      if (audioType(chosen[k])) {
+        msg.className = 'msg bad';
+        msg.textContent = 'A story goes with photos, not a recording. Add the recording on its own, without a story.';
+        return;
+      }
     }
 
     btn.disabled = true;
-    msg.textContent = 'Adding…';
     var by = $('by').value.trim();
-    var work = chosen.length === 1
-      ? prepare(chosen[0]).then(function (item) { return send(item, '', by, text); }).then(function (d) { return d && d.photo; })
-      : api('/api/stories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ story: text, by: by, website: $('website').value }),
-        }).then(function (d) { return d && d.story; });
+    var files = chosen.slice();
+    var story = null, added = 0, stuck = [];
+    msg.textContent = files.length ? 'Adding the story…' : 'Adding…';
 
-    work.then(function (st) {
-      if (st) placeStory(st);
+    api('/api/stories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ story: text, by: by, website: $('website').value }),
+    }).then(function (d) {
+      story = d && d.story;
+      if (!story) throw new Error('Could not add the story just now. Please try again.');
+      story.pics = story.pics || [];
+      if (story) placeStory(story);
+      // Then its photographs, one at a time, into the frame.
+      var chain = Promise.resolve();
+      files.forEach(function (file, i) {
+        chain = chain.then(function () {
+          msg.textContent = 'Adding photo ' + (i + 1) + ' of ' + files.length + '…';
+          return prepare(file)
+            .then(function (item) { return send(item, '', by, '', story.id); })
+            .then(function (r) {
+              if (r && r.photo) { story.pics.push(r.photo); added++; placeStory(story); }
+              mark(i, 'ok', 'added');
+            })
+            .catch(function (err) {
+              stuck.push(file);
+              mark(i, 'err', err.message === 'could not read' ? "couldn't read this one" : (err.message === 'too large' ? 'too large' : (err.message || 'failed')));
+            });
+        });
+      });
+      return chain;
+    }).then(function () {
+      if (stuck.length) {
+        // The story is up; say plainly which photos did not make it, and
+        // leave them in the picker so they can be tried again.
+        chosen = stuck;
+        listChosen();
+        msg.className = 'msg bad';
+        msg.textContent = 'The story is up' + (added ? ' with ' + added + ' photo' + (added === 1 ? '' : 's') : '') +
+          ', but ' + stuck.length + ' photo' + (stuck.length === 1 ? '' : 's') + ' could not be added. They are still chosen above; tap Add to try again with the story left empty, or pick a different copy.';
+        $('story').value = '';
+        updateSend();
+        return;
+      }
       msg.className = 'msg good';
       msg.textContent = 'Added. Thank you.';
       $('story').value = '';
+      $('caption').value = '';
       chosen = [];
       $('files').value = '';
       listChosen();
       setTimeout(function () {
         closeSheet();
         msg.textContent = '';
-        // Let them see it: the new frame is at the top of the stories.
         $('stories').scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 1400);
     }).catch(function (err) {
       msg.className = 'msg bad';
-      msg.textContent = err.message === 'could not read' ? "Couldn't read that photo. Try a different copy of it."
-        : (err.message === 'too large' ? 'That photo is too large.' : (err.message || 'Could not add that just now. Please try again.'));
-      btn.disabled = false;
+      msg.textContent = err.message || 'Could not add that just now. Please try again.';
+      updateSend();
     });
+  }
+
+  $('send').addEventListener('click', function () {
+    if (storyText().length >= 2) sendStory(); else sendToWall();
   });
 
   /* -------------------------------------------------------------- strip --- */
@@ -1007,9 +1082,8 @@
     if (p.kind === 'story') {
       var have = findStory(p.id);
       if (have) {
-        var tx = have.querySelector('p'); if (tx) tx.textContent = p.caption || '';
-        var td = have.querySelector('.told'); if (td) { td.textContent = p.uploader ? '\u2014 ' + p.uploader : ''; td.hidden = !p.uploader; }
         for (var si = 0; si < stories.length; si++) if (stories[si].id === p.id) { stories[si] = p; break; }
+        have.replaceWith(storyCard(p, false));
         return;
       }
       placeStory(p);

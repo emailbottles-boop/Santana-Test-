@@ -450,6 +450,7 @@ function photoRow(r) {
     uploader: r.uploader || '',
     photographer: r.photographer || '',
     thumb: r.thumb_key ? '/img/' + r.thumb_key : '',
+    parent_id: r.parent_id || 0,
     original_bytes: r.original_bytes || 0,
     width: r.width || 0,
     height: r.height || 0,
@@ -458,12 +459,12 @@ function photoRow(r) {
   };
 }
 
-const ROW_COLS = 'id, kind, image, caption, uploader, photographer, width, height, duration, created_at, thumb_key, original_bytes';
+const ROW_COLS = 'id, kind, image, caption, uploader, photographer, width, height, duration, created_at, thumb_key, original_bytes, parent_id';
 
 async function listPhotos(env, beforeId) {
   const before = Number(beforeId);
   const paged = Number.isFinite(before) && before > 0;
-  const where = ["hidden = 0", "kind = 'photo'"];
+  const where = ["hidden = 0", "kind = 'photo'", 'parent_id = 0'];
   const binds = [];
   if (paged) { where.push('id < ?'); binds.push(before); }
   binds.push(PAGE_SIZE);
@@ -474,11 +475,40 @@ async function listPhotos(env, beforeId) {
   return { photos, more: photos.length === PAGE_SIZE };
 }
 
+// A story's photographs are rows of their own with parent_id set, so each
+// can be hidden, trimmed or deleted on its own from the caretaker panel.
+// Here they are gathered under their story, oldest first, as `pics`.
 async function listStories(env) {
   const { results } = await env.DB.prepare(
-    'SELECT ' + ROW_COLS + " FROM photos WHERE hidden = 0 AND kind = 'story' ORDER BY (r2_key <> '') DESC, id DESC LIMIT ?",
+    'SELECT ' + ROW_COLS + " FROM photos WHERE hidden = 0 AND kind = 'story' ORDER BY id DESC LIMIT ?",
   ).bind(MAX_STORIES).all();
-  return (results || []).map(photoRow);
+  const stories = (results || []).map(photoRow);
+  await attachPics(env, stories);
+  // Stories with pictures first, then the written ones; newest first within each.
+  stories.sort((a, b) => ((b.image || b.pics.length) ? 1 : 0) - ((a.image || a.pics.length) ? 1 : 0) || b.id - a.id);
+  return stories;
+}
+
+async function attachPics(env, stories) {
+  for (const st of stories) st.pics = [];
+  if (!stories.length) return;
+  const ids = stories.map((s) => s.id);
+  const { results } = await env.DB.prepare(
+    'SELECT ' + ROW_COLS + ' FROM photos WHERE hidden = 0 AND parent_id IN (' + ids.map(() => '?').join(',') + ') ORDER BY id ASC',
+  ).bind(...ids).all();
+  const byId = new Map(stories.map((s) => [s.id, s]));
+  for (const r of results || []) {
+    const st = byId.get(r.parent_id);
+    if (st) st.pics.push(photoRow(r));
+  }
+}
+
+async function storyWithPics(env, id) {
+  const row = await env.DB.prepare('SELECT ' + ROW_COLS + " FROM photos WHERE id = ? AND kind = 'story' AND hidden = 0").bind(id).first();
+  if (!row) return null;
+  const st = photoRow(row);
+  await attachPics(env, [st]);
+  return st;
 }
 
 async function listRecordings(env) {
@@ -522,19 +552,32 @@ async function latestCursor(env) {
 async function changesSince(env, cursor) {
   const { results } = await env.DB.prepare(
     'SELECT c.seq, c.kind AS ev, c.item_id, p.hidden, p.id, p.kind, p.image, p.caption, p.uploader, p.photographer, ' +
-    'p.width, p.height, p.duration, p.created_at, p.thumb_key, p.original_bytes ' +
+    'p.width, p.height, p.duration, p.created_at, p.thumb_key, p.original_bytes, p.parent_id ' +
     'FROM changes c LEFT JOIN photos p ON p.id = c.item_id WHERE c.seq > ? ORDER BY c.seq ASC LIMIT 200',
   ).bind(cursor).all();
   const byItem = new Map();
   let last = cursor;
+  const touchedStories = new Set();
   for (const r of results || []) {
     last = r.seq;
+    // A photo that belongs to a story: what changed, for a viewer, is the
+    // story's frame. Reported below as a refresh of that story.
+    if (r.id != null && r.parent_id) { touchedStories.add(r.parent_id); continue; }
     if (r.ev === 'add' || r.ev === 'show') {
       if (r.id == null || r.hidden) byItem.set(r.item_id, { kind: 'hide', id: r.item_id });
       else byItem.set(r.item_id, { kind: 'show', id: r.item_id, item: photoRow(r) });
     } else {
       byItem.set(r.item_id, { kind: 'hide', id: r.item_id });
     }
+  }
+  for (const sid of touchedStories) {
+    if (byItem.has(sid) && byItem.get(sid).kind === 'hide') continue;
+    const st = await storyWithPics(env, sid);
+    byItem.set(sid, st ? { kind: 'show', id: sid, item: st } : { kind: 'hide', id: sid });
+  }
+  // Stories in the window need their photos too.
+  for (const ev of byItem.values()) {
+    if (ev.kind === 'show' && ev.item.kind === 'story' && !ev.item.pics) await attachPics(env, [ev.item]);
   }
   return { events: Array.from(byItem.values()), cursor: last };
 }
@@ -731,6 +774,17 @@ async function receivePhotoForm(request, env, origin) {
   const uploader = str(form.get('by'), 80);
   const photographer = str(form.get('photo_by'), 80);
 
+  // A photograph that belongs to a story just added (`parent` is the story's
+  // id). It goes into the story's frame, not onto the wall. The story must
+  // exist and be recent, so nobody can hang a photo on somebody else's story
+  // long after the fact.
+  let parent = Number(form.get('parent')) || 0;
+  if (parent > 0) {
+    const st = await env.DB.prepare("SELECT id, created_at FROM photos WHERE id = ? AND kind = 'story'").bind(parent).first();
+    const fresh = st && (Date.now() - Date.parse((st.created_at || '') + 'Z')) < 30 * 60 * 1000;
+    if (!fresh) return json({ error: 'That story is not open for photos any more' }, 400, PUBLIC_CORS);
+  }
+
   const base = Date.now().toString(36) + '-' + crypto.randomUUID().slice(0, 12);
   const key = base + '.' + dext;
   const tkey = tbuf ? 'thumb-' + base + '.' + IMAGE_TYPES[ttype] : '';
@@ -743,10 +797,10 @@ async function receivePhotoForm(request, env, origin) {
   let row;
   try {
     row = await env.DB.prepare(
-      'INSERT INTO photos (kind, mime, image, r2_key, thumb_key, original_key, original_bytes, caption, uploader, photographer, width, height, duration, bytes) ' +
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ' + ROW_COLS,
+      'INSERT INTO photos (kind, mime, image, r2_key, thumb_key, original_key, original_bytes, caption, uploader, photographer, width, height, duration, bytes, parent_id) ' +
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ' + ROW_COLS,
     )
-      .bind(kind, dtype, '/img/' + key, key, tkey, okey, obuf ? obuf.byteLength : 0, caption, uploader, photographer, size.width, size.height, 0, dbuf.byteLength)
+      .bind(kind, dtype, '/img/' + key, key, tkey, okey, obuf ? obuf.byteLength : 0, caption, uploader, photographer, size.width, size.height, 0, dbuf.byteLength, parent)
       .first();
   } catch (err) {
     await Promise.all([key, tkey, okey].filter(Boolean).map((k) => env.IMAGES.delete(k).catch(() => {})));
@@ -905,7 +959,8 @@ async function route(request, env, ctx, url, path, method) {
     ).bind(story, uploader, story.length).first();
     await logChange(env, 'add', row.id);
     await purgeWallCache(origin);
-    return json({ ok: true, story: photoRow(row) }, 200, PUBLIC_CORS);
+    const added = photoRow(row); added.pics = [];
+    return json({ ok: true, story: added }, 200, PUBLIC_CORS);
   }
 
   /* ---- admin ---- */
@@ -1111,10 +1166,16 @@ async function route(request, env, ctx, url, path, method) {
       if (method === 'DELETE') {
         // Read the key first: once the row is gone there is no way left to
         // find the file, and it would sit in R2 forever.
-        const row = await env.DB.prepare('SELECT r2_key, thumb_key, original_key, pre_key, pre_thumb_key FROM photos WHERE id = ?').bind(id).first();
+        const row = await env.DB.prepare('SELECT kind, r2_key, thumb_key, original_key, pre_key, pre_thumb_key FROM photos WHERE id = ?').bind(id).first();
         if (!row) return json({ error: 'Already gone' }, 404);
-        await env.DB.prepare('DELETE FROM photos WHERE id = ?').bind(id).run();
-        await Promise.all([row.r2_key, row.thumb_key, row.original_key, row.pre_key, row.pre_thumb_key].filter(Boolean).map((k) => env.IMAGES.delete(k).catch(() => {})));
+        // A story takes its photographs with it.
+        const kids = row.kind === 'story'
+          ? ((await env.DB.prepare('SELECT id, r2_key, thumb_key, original_key, pre_key, pre_thumb_key FROM photos WHERE parent_id = ?').bind(id).all()).results || [])
+          : [];
+        await env.DB.prepare('DELETE FROM photos WHERE id = ? OR parent_id = ?').bind(id, id).run();
+        const keys = [row, ...kids].flatMap((r) => [r.r2_key, r.thumb_key, r.original_key, r.pre_key, r.pre_thumb_key]).filter(Boolean);
+        await Promise.all(keys.map((k) => env.IMAGES.delete(k).catch(() => {})));
+        for (const k of kids) await logChange(env, 'remove', k.id);
         await logChange(env, 'remove', id);
         await purgeWallCache(origin);
         return json({ ok: true });
