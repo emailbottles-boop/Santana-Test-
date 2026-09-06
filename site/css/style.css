@@ -509,6 +509,12 @@ main {
 @media (max-width: 520px) { .reader-inner { padding: 34px 22px 26px; } }
 
 textarea.tall { min-height: 150px; }
+.sheet .note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--soft);
+}
 
 footer {
   border-top: 1px solid var(--line);
