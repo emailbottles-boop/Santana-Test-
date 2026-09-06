@@ -384,6 +384,28 @@ main {
   margin: 0 0 16px;
   background: var(--line);
 }
+/* The rest of a story's photographs, small, under the first. */
+.story-pics {
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 16px;
+}
+.story-pics img, .story-pics .more {
+  width: 58px;
+  height: 58px;
+  border-radius: 4px;
+  object-fit: cover;
+  margin: 0;
+  flex: none;
+}
+.story-pics .more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--line);
+  color: var(--soft);
+  font: 500 13px var(--sans);
+}
 .story::before {
   content: "\2766";     /* a small floral heart, the kind set at the head of a page */
   display: block;
@@ -451,14 +473,15 @@ main {
   margin: auto;
 }
 .reader-inner .x { position: absolute; top: 12px; right: 12px; }
-.reader-inner img {
+.reader-pics img {
   display: block;
   max-width: 100%;
   max-height: 58vh;
-  margin: 0 auto 20px;
+  margin: 0 auto 14px;
   border-radius: 4px;
   object-fit: contain;
 }
+.reader-pics { margin-bottom: 6px; }
 .reader-text {
   font-family: var(--serif);
   font-size: clamp(18px, 2.4vw, 21px);
@@ -485,18 +508,6 @@ main {
 }
 @media (max-width: 520px) { .reader-inner { padding: 34px 22px 26px; } }
 
-/* "or tell a story" between the two halves of the Add sheet. */
-.or {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 26px 0 6px;
-  color: var(--soft);
-  font-family: var(--serif);
-  font-style: italic;
-  font-size: 17px;
-}
-.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 textarea.tall { min-height: 150px; }
 
 footer {

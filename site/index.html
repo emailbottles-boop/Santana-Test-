@@ -85,8 +85,11 @@
     <label for="caption">A few words about it <span class="opt">optional</span></label>
     <textarea id="caption" maxlength="600" placeholder="Where it was, when it was, what was happening… (for a recording, its name)"></textarea>
 
+    <label for="story">Or tell a story <span class="opt">optional</span></label>
+    <textarea id="story" class="tall" maxlength="5000" placeholder="A memory, a moment, something he said… Write here and any photos you chose above go into the story's frame with it, under the photographs. Leave this empty and the photos go on the wall."></textarea>
+
     <label for="by">Your name <span class="opt">optional</span></label>
-    <input id="by" maxlength="80" autocomplete="name" placeholder="Shown only when someone opens the photo">
+    <input id="by" maxlength="80" autocomplete="name" placeholder="Shown when a photo is opened, or signed under a story">
 
     <label for="photoBy">Photographer <span class="opt">optional</span></label>
     <input id="photoBy" maxlength="80" placeholder="Who took it — shown only when the photo is opened">
@@ -100,13 +103,9 @@
       <input id="website" tabindex="-1" autocomplete="off">
     </div>
 
-    <button class="add wide" id="send" type="button" disabled>Add to the wall</button>
-
-    <div class="or" aria-hidden="true"><span>or tell a story</span></div>
-
-    <label for="story">A story about him</label>
-    <textarea id="story" class="tall" maxlength="5000" placeholder="A memory, a moment, something he said… It goes in its own frame under the photographs. Choose one photo above to go with it, or none. Your name above is shown only when someone opens it."></textarea>
-    <button class="add wide" id="sendStory" type="button" disabled>Add the story</button>
+    <!-- One button. What it does follows from what has been filled in, and
+         its label says so before it is pressed. -->
+    <button class="add wide" id="send" type="button" disabled>Add</button>
 
     <p class="msg" id="msg"></p>
   </div>
@@ -116,7 +115,7 @@
 <div class="reader" id="reader" hidden>
   <div class="reader-inner" role="dialog" aria-modal="true" aria-label="A story">
     <button class="x" id="closeReader" type="button" aria-label="Close">&times;</button>
-    <img id="readerImg" alt="" hidden>
+    <div class="reader-pics" id="readerPics" hidden></div>
     <div class="reader-text" id="readerText"></div>
     <p class="reader-by" id="readerBy" hidden></p>
   </div>

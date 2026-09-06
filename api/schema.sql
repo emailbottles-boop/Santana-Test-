@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS photos (
   pre_height INTEGER NOT NULL DEFAULT 0,
   pre_bytes  INTEGER NOT NULL DEFAULT 0,
   pre_mime   TEXT NOT NULL DEFAULT '',
+  parent_id  INTEGER NOT NULL DEFAULT 0,     -- a photo that belongs to a story: the story's id
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
