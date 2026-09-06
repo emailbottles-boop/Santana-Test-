@@ -464,7 +464,7 @@ const ROW_COLS = 'id, kind, image, caption, uploader, photographer, width, heigh
 async function listPhotos(env, beforeId) {
   const before = Number(beforeId);
   const paged = Number.isFinite(before) && before > 0;
-  const where = ["hidden = 0", "kind = 'photo'", 'parent_id = 0'];
+  const where = ["hidden = 0", "kind = 'photo'"];
   const binds = [];
   if (paged) { where.push('id < ?'); binds.push(before); }
   binds.push(PAGE_SIZE);
@@ -477,7 +477,8 @@ async function listPhotos(env, beforeId) {
 
 // A story's photographs are rows of their own with parent_id set, so each
 // can be hidden, trimmed or deleted on its own from the caretaker panel.
-// Here they are gathered under their story, oldest first, as `pics`.
+// They are on the wall like any photo, and gathered here under their story
+// too, oldest first, as `pics`.
 async function listStories(env) {
   const { results } = await env.DB.prepare(
     'SELECT ' + ROW_COLS + " FROM photos WHERE hidden = 0 AND kind = 'story' ORDER BY id DESC LIMIT ?",
@@ -560,9 +561,10 @@ async function changesSince(env, cursor) {
   const touchedStories = new Set();
   for (const r of results || []) {
     last = r.seq;
-    // A photo that belongs to a story: what changed, for a viewer, is the
-    // story's frame. Reported below as a refresh of that story.
-    if (r.id != null && r.parent_id) { touchedStories.add(r.parent_id); continue; }
+    // A photo that belongs to a story is on the wall AND in the story's
+    // frame, so its own event goes through as usual and the story is
+    // refreshed as well (below).
+    if (r.id != null && r.parent_id) touchedStories.add(r.parent_id);
     if (r.ev === 'add' || r.ev === 'show') {
       if (r.id == null || r.hidden) byItem.set(r.item_id, { kind: 'hide', id: r.item_id });
       else byItem.set(r.item_id, { kind: 'show', id: r.item_id, item: photoRow(r) });
@@ -775,7 +777,8 @@ async function receivePhotoForm(request, env, origin) {
   const photographer = str(form.get('photo_by'), 80);
 
   // A photograph that belongs to a story just added (`parent` is the story's
-  // id). It goes into the story's frame, not onto the wall. The story must
+  // id). It goes on the wall like any photo and into the story's frame as
+  // well. The story must
   // exist and be recent, so nobody can hang a photo on somebody else's story
   // long after the fact.
   let parent = Number(form.get('parent')) || 0;

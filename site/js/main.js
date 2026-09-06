@@ -789,7 +789,7 @@
     var st = storyText().length >= 2, n = chosen.length, btn = $('send');
     if (st) {
       btn.disabled = false;
-      btn.textContent = n === 0 ? 'Add the story' : n === 1 ? 'Add the story with its photo' : 'Add the story with its ' + n + ' photos';
+      btn.textContent = n === 0 ? 'Add the story' : n === 1 ? 'Add the story and its photo' : 'Add the story and its ' + n + ' photos';
     } else {
       btn.disabled = n === 0;
       btn.textContent = n === 0 ? 'Add' : n > 1 ? 'Add ' + n + ' photos to the wall' : 'Add to the wall';
@@ -846,7 +846,15 @@
           return prepare(file)
             .then(function (item) { return send(item, '', by, '', story.id); })
             .then(function (r) {
-              if (r && r.photo) { story.pics.push(r.photo); added++; placeStory(story); }
+              if (r && r.photo) {
+                story.pics.push(r.photo); added++; placeStory(story);
+                // And onto the wall, at the top, like any photo.
+                photos.unshift(r.photo);
+                $('wall').insertBefore(tile(r.photo, true), $('wall').firstChild);
+                $('state').hidden = true;
+                $('wallTitle').hidden = false;
+                stripRefresh();
+              }
               mark(i, 'ok', 'added');
             })
             .catch(function (err) {
