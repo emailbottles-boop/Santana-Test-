@@ -780,20 +780,16 @@
 
   /* -------------------------------------------------------------- story --- */
 
-  // The one button's label says what will happen: photos alone go on the
-  // wall; a story alone goes in a frame; a story with photos goes in a frame
-  // with all of them. Nothing typed is ever quietly dropped.
+  // One button, one word. What happens follows from what has been filled
+  // in: photos alone go on the wall; a story alone goes in a frame; a story
+  // with photos goes in a frame with them, and the photos go on the wall as
+  // well. Nothing typed is ever quietly dropped.
   function storyText() { return $('story').value.trim(); }
 
   function updateSend() {
-    var st = storyText().length >= 2, n = chosen.length, btn = $('send');
-    if (st) {
-      btn.disabled = false;
-      btn.textContent = n === 0 ? 'Add the story' : n === 1 ? 'Add the story and its photo' : 'Add the story and its ' + n + ' photos';
-    } else {
-      btn.disabled = n === 0;
-      btn.textContent = n === 0 ? 'Add' : n > 1 ? 'Add ' + n + ' photos to the wall' : 'Add to the wall';
-    }
+    var btn = $('send');
+    btn.disabled = storyText().length < 2 && chosen.length === 0;
+    btn.textContent = 'Add';
   }
   $('story').addEventListener('input', updateSend);
 
