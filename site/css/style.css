@@ -166,7 +166,7 @@ body::before {
   font-size: 18px;
   color: var(--ink);
 }
-.notice-when span + span:not(:empty)::before { content: " \00b7 "; color: var(--accent); }
+.notice-when span + span:not(:empty)::before { content: "\00a0\00b7\00a0"; color: var(--accent); }
 .notice-where {
   margin: 4px 0 0;
   font-family: var(--sans);
