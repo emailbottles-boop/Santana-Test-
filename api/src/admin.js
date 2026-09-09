@@ -140,6 +140,8 @@ export const ADMIN_HTML = `<!doctype html>
       <input id="noticeWhen" maxlength="120" placeholder="3 PM to sunset">
       <label for="noticeWhere">Place</label>
       <input id="noticeWhere" maxlength="160" placeholder="Little Squalicum Beach">
+      <label for="noticeAddress">Address <span style="text-transform:none;letter-spacing:0">(becomes a map link)</span></label>
+      <input id="noticeAddress" maxlength="200" placeholder="2999 Roeder Ave, Bellingham, WA 98225">
       <label for="noticeNote">A line underneath</label>
       <textarea id="noticeNote" maxlength="600" placeholder="From 4 to 5 PM is a good time to share childhood stories and happy memories."></textarea>
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center"><button class="primary" id="noticeSave">Save the notice</button><span class="msg" id="noticeMsg" style="margin:0"></span></div>
@@ -581,8 +583,8 @@ export const ADMIN_HTML = `<!doctype html>
 
   /* ------------------------------------------------------------- notice --- */
 
-  var NOTICE = ['notice_title', 'notice_date', 'notice_when', 'notice_where', 'notice_note'];
-  var noticeIds = { notice_title: 'noticeTitle', notice_date: 'noticeDate', notice_when: 'noticeWhen', notice_where: 'noticeWhere', notice_note: 'noticeNote' };
+  var NOTICE = ['notice_title', 'notice_date', 'notice_when', 'notice_where', 'notice_address', 'notice_note'];
+  var noticeIds = { notice_title: 'noticeTitle', notice_date: 'noticeDate', notice_when: 'noticeWhen', notice_where: 'noticeWhere', notice_address: 'noticeAddress', notice_note: 'noticeNote' };
 
   function loadNotice() {
     // The public first-paint call carries the settings; no owner-only read needed.

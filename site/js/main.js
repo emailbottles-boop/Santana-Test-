@@ -77,6 +77,10 @@
       $('noticeDate').textContent = s.notice_date || '';
       $('noticeWhen').textContent = s.notice_when || '';
       $('noticeWhere').textContent = s.notice_where || '';
+      // The address opens in whatever maps the phone has.
+      var addr = (s.notice_address || '').trim();
+      $('noticeAddress').textContent = addr;
+      $('noticeAddress').href = addr ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(addr) : '#';
       $('noticeNote').textContent = s.notice_note || '';
     }
   }
