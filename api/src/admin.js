@@ -128,6 +128,23 @@ export const ADMIN_HTML = `<!doctype html>
   </header>
   <main>
 
+    <section class="card" id="noticeCard" style="margin-bottom:22px">
+      <h1 style="font-size:15px;margin-bottom:4px">Notice at the top of the page</h1>
+      <p class="hint" style="margin-top:0">A gathering, a ceremony, a date to hold. Leave a line blank to leave it out. Switch it off after the day.</p>
+      <label style="display:flex;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink)"><input type="checkbox" id="noticeOn" style="width:auto"> Show the notice</label>
+      <label for="noticeTitle">Title</label>
+      <input id="noticeTitle" maxlength="120" placeholder="Candlelight ceremony">
+      <label for="noticeDate">Date</label>
+      <input id="noticeDate" maxlength="120" placeholder="Saturday, September 13">
+      <label for="noticeWhen">Time</label>
+      <input id="noticeWhen" maxlength="120" placeholder="3 PM to sunset">
+      <label for="noticeWhere">Place</label>
+      <input id="noticeWhere" maxlength="160" placeholder="Little Squalicum Beach">
+      <label for="noticeNote">A line underneath</label>
+      <textarea id="noticeNote" maxlength="600" placeholder="From 4 to 5 PM is a good time to share childhood stories and happy memories."></textarea>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center"><button class="primary" id="noticeSave">Save the notice</button><span class="msg" id="noticeMsg" style="margin:0"></span></div>
+    </section>
+
     <section id="panePhotos">
       <div class="toolbar">
         <button id="scan">Find photos with bars</button>
@@ -562,8 +579,32 @@ export const ADMIN_HTML = `<!doctype html>
     next();
   };
 
+  /* ------------------------------------------------------------- notice --- */
+
+  var NOTICE = ['notice_title', 'notice_date', 'notice_when', 'notice_where', 'notice_note'];
+  var noticeIds = { notice_title: 'noticeTitle', notice_date: 'noticeDate', notice_when: 'noticeWhen', notice_where: 'noticeWhere', notice_note: 'noticeNote' };
+
+  function loadNotice() {
+    // The public first-paint call carries the settings; no owner-only read needed.
+    return fetch('/api/memorial').then(function (r) { return r.json(); }).then(function (d) {
+      var st = (d && d.settings) || {};
+      NOTICE.forEach(function (k) { $(noticeIds[k]).value = st[k] || ''; });
+      $('noticeOn').checked = st.notice_on !== '0';
+    }).catch(function () {});
+  }
+
+  $('noticeSave').onclick = function () {
+    var body = { notice_on: $('noticeOn').checked ? '1' : '0' };
+    NOTICE.forEach(function (k) { body[k] = $(noticeIds[k]).value.trim(); });
+    var m = $('noticeMsg'); m.className = 'msg'; m.textContent = 'Saving…';
+    api('/api/admin/settings', { method: 'PUT', body: JSON.stringify(body) })
+      .then(function () { m.className = 'msg good'; m.textContent = 'Saved. It is on the page now.'; })
+      .catch(function (e) { m.className = 'msg bad'; m.textContent = e.message; });
+  };
+
   function start() {
     show(gate, false); show(app, true);
+    loadNotice();
     oldest = null;
     loadPhotos(false).catch(function (e) {
       var l = document.getElementById('loading');

@@ -33,6 +33,20 @@
 </header>
 
 <!--
+  The notice: a gathering or a date to hold, written from the caretaker
+  panel. Hidden until there is something to say.
+-->
+<section class="notice" id="notice" hidden aria-label="Notice">
+  <div class="notice-card">
+    <div class="notice-flame" aria-hidden="true"><span></span></div>
+    <h2 id="noticeTitle"></h2>
+    <p class="notice-when"><span id="noticeDate"></span><span id="noticeWhen"></span></p>
+    <p class="notice-where" id="noticeWhere"></p>
+    <p class="notice-note" id="noticeNote"></p>
+  </div>
+</section>
+
+<!--
   A row of his photographs that quietly turn over, one at a time, drawn from
   whatever is on the wall. Tapping one opens it. Appears once there are a few
   photographs to show; until then the row simply is not there.
