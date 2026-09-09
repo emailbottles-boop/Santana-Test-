@@ -595,10 +595,11 @@ const DEFAULT_SETTINGS = {
   // hold. Edited from the caretaker panel; notice_on '1' shows it, '0' hides.
   notice_on: '1',
   notice_title: 'Candlelight ceremony',
-  notice_date: '',
+  notice_date: 'Sunday, September 13',
   notice_when: '3 PM to sunset',
   notice_where: 'Little Squalicum Beach',
-  notice_note: 'From 4 to 5 PM is a good time to share childhood stories and happy memories.',
+  notice_address: '2999 Roeder Ave, Bellingham, WA 98225',
+  notice_note: 'Minimal open flames. From 4 to 5 PM is a good time to share a few words.',
 };
 
 async function readSettings(env) {

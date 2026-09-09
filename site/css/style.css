@@ -175,6 +175,19 @@ body::before {
   text-transform: uppercase;
   color: var(--accent);
 }
+.notice-address {
+  margin: 6px 0 0;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--soft);
+}
+.notice-address a {
+  color: var(--soft);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+.notice-address a:hover { color: var(--accent); border-color: var(--accent); }
+.notice-address a:empty { display: none; }
 .notice-note {
   margin: 14px auto 0;
   max-width: 44ch;
@@ -184,7 +197,7 @@ body::before {
   line-height: 1.55;
   color: var(--soft);
 }
-.notice-when:empty, .notice-where:empty, .notice-note:empty { display: none; }
+.notice-when:empty, .notice-where:empty, .notice-note:empty, .notice-address:has(a:empty) { display: none; }
 
 /* A small candle: a wick and a flame that breathes, very slowly. Still for
    anyone who has asked for less motion. */
