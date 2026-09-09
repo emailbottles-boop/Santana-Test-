@@ -591,6 +591,14 @@ const DEFAULT_SETTINGS = {
   dates: '',
   intro: '',
   invite: '',
+  // The notice at the top of the page: a gathering, a ceremony, a date to
+  // hold. Edited from the caretaker panel; notice_on '1' shows it, '0' hides.
+  notice_on: '1',
+  notice_title: 'Candlelight ceremony',
+  notice_date: '',
+  notice_when: '3 PM to sunset',
+  notice_where: 'Little Squalicum Beach',
+  notice_note: 'From 4 to 5 PM is a good time to share childhood stories and happy memories.',
 };
 
 async function readSettings(env) {
