@@ -298,7 +298,8 @@
 
   function loadFirst() {
     return api('/api/memorial').then(function (d) {
-      applySettings(d.settings);
+      // Nothing about the heading may stop the photographs from loading.
+      try { applySettings(d.settings); } catch (e) { /* the heading keeps its default */ }
       recordings = d.recordings || [];
       renderRecordings();
       stories = d.stories || [];
