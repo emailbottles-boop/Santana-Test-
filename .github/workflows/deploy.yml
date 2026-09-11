@@ -73,6 +73,17 @@ jobs:
       # A failure here is usually a domain that could not attach; the worker
       # itself uploads before that, so the site is live and the trim pass
       # below still runs. The job is marked failed at the end regardless.
+      # A browser may keep the page's script and stylesheet for a while (see
+      # site/_headers). Stamping their addresses with this deploy's commit
+      # means a kept copy is never used with a newer page: the new page asks
+      # for new addresses, and gets fresh files.
+      - name: Stamp the script and stylesheet with this deploy
+        if: steps.secrets.outputs.ready == 'yes' && github.event_name != 'schedule'
+        run: |
+          v="${GITHUB_SHA::10}"
+          sed -i "s#\(href=\"/\?css/style\.css\)\"#\1?v=$v\"#g; s#\(src=\"/\?js/[a-z]*\.js\)\"#\1?v=$v\"#g" site/index.html site/404.html
+          grep -o 'style\.css?v=[0-9a-f]*\|main\.js?v=[0-9a-f]*' site/index.html
+
       - name: Deploy the site (schema, worker, domains)
         id: deploy
         if: steps.secrets.outputs.ready == 'yes' && github.event_name != 'schedule'
